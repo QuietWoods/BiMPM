@@ -1,27 +1,25 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 from __future__ import division
-import argparse
-import os
-import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
-import time
-import re
-import tensorflow as tf
-import json
-import logging
-
-import matplotlib
-#matplotlib.use('TKAgg')  # necessary on OS X
-matplotlib.use('Agg')
-from matplotlib import pyplot as pl
-
 from vocab_utils import Vocab
 from SentenceMatchDataStream import SentenceMatchDataStream
 from SentenceMatchModelGraph import SentenceMatchModelGraph
 import namespace_utils
 import jieba
+import argparse
+import os
+import sys
+# reload(sys)
+# sys.setdefaultencoding('utf-8')
+import time
+# import re
+import tensorflow as tf
+import json
+import logging
+
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot as pl
 
 jieba.load_userdict('mydict/mydict.txt')
 
@@ -47,6 +45,13 @@ logger.setLevel(logging.INFO)
 
 
 def collect_vocabs(train_path, with_POS=False, with_NER=False):
+    """
+    收集词表
+    :param train_path:
+    :param with_POS:
+    :param with_NER:
+    :return:
+    """
     all_labels = set()
     all_words = set()
     all_POSs = None
@@ -56,13 +61,8 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False):
     infile = open(train_path, 'rt')
     i = 0
     for line in infile:
-        #line = line.decode('utf-8').strip()
         if line.startswith('-'): continue
         lineno, sentence1, sentence2, label = line.strip().split('\t')
-        # items = re.split("\t", line)
-        # label = items[0]
-        # sentence1 = re.split("\\s+",items[1].lower())
-        # sentence2 = re.split("\\s+",items[2].lower())
         all_labels.add(label)
         # 中文分词， 如果不分词，all_words跟all_chars一样。
         sentence1 = sentence1.strip()
@@ -70,8 +70,6 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False):
         stopwords = '，。！？*'
         words1 = [w for w in jieba.cut(sentence1) if w.strip() and w not in stopwords]
         words2 = [w for w in jieba.cut(sentence2) if w.strip() and w not in stopwords]
-        #sentence1 = ' '.join(words1)
-        #sentence2 = ' '.join(words2)
         sentence1 = words1
         sentence2 = words2
         i += 1
@@ -83,28 +81,22 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False):
         if i < 3:
             print(all_words)
         all_words.update(sentence2)
-        # if with_POS:
-        #     all_POSs.update(re.split("\\s+",items[3]))
-        #     all_POSs.update(re.split("\\s+",items[4]))
-        # if with_NER:
-        #     all_NERs.update(re.split("\\s+",items[5]))
-        #     all_NERs.update(re.split("\\s+",items[6]))
     infile.close()
 
     all_chars = set()
     for word in all_words:
-        #print(word)
-        #print(type(word))
         for char in word:
-            #print(char)
-            #print(type(char))
             all_chars.add(char)
-    # print(all_chars)
-    # print('-------------------------------------------------')
-    # print(all_words)
-    return (all_words, all_chars, all_labels, all_POSs, all_NERs)
+    return all_words, all_chars, all_labels, all_POSs, all_NERs
+
 
 def output_probs(probs, label_vocab):
+    """
+    输出结果的概率
+    :param probs:
+    :param label_vocab:
+    :return:
+    """
     out_string = ""
     for i in range(probs.size):
         out_string += " {}:{}".format(label_vocab.getWord(i), probs[i])
@@ -112,6 +104,15 @@ def output_probs(probs, label_vocab):
 
 
 def evaluation(sess, valid_graph, devDataStream, outpath=None, label_vocab=None):
+    """
+    评估函数
+    :param sess:
+    :param valid_graph:
+    :param devDataStream:
+    :param outpath:
+    :param label_vocab:
+    :return:
+    """
     if outpath is not None:
         result_json = {}
     # 评估标准
@@ -212,6 +213,18 @@ def predict(sess, valid_graph, devDataStream, outpath=None, label_vocab=None):
 
 def train(sess, saver, train_graph, valid_graph, trainDataStream,
           devDataStream, options, best_path):
+    """
+    训练
+    :param sess:
+    :param saver:
+    :param train_graph:
+    :param valid_graph:
+    :param trainDataStream:
+    :param devDataStream:
+    :param options:
+    :param best_path:
+    :return:
+    """
     best_acc = -1
     # 损失函数
     train_loss = []
@@ -294,7 +307,7 @@ def main(FLAGS):
         logger.info('Collecting words, chars and labels ...')
         (all_words, all_chars, all_labels, all_POSs, all_NERs) = collect_vocabs(train_path)
         logger.info('Number of words: {}'.format(len(all_words)))
-        label_vocab = Vocab(fileformat='voc', voc=all_labels,dim=2)
+        label_vocab = Vocab(fileformat='voc', voc=all_labels, dim=2)
         label_vocab.dump_to_txt2(label_path)
 
         if FLAGS.with_char:
@@ -350,6 +363,7 @@ def main(FLAGS):
         # training
         train(sess, saver, train_graph, valid_graph, trainDataStream, devDataStream, FLAGS, best_path)
 
+
 def enrich_options(options):
     if not options.__dict__.has_key("in_format"):
         options.__dict__["in_format"] = 'tsv'
@@ -392,7 +406,6 @@ if __name__ == '__main__':
     
     parser.add_argument('--config_path', type=str, help='Configuration file.')
 
-#     print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
     args, unparsed = parser.parse_known_args()
     if args.config_path is not None:
         logger.info('Loading the configuration from ' + args.config_path)
