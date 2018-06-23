@@ -128,13 +128,13 @@ class SentenceMatchModelGraph(object):
         # ======Highway layer======
         if options.with_highway:
             with tf.variable_scope("input_highway"):
-                with tf.variable_scope("in_question_repres"):
-                    in_question_repres = match_utils.multi_highway_layer(in_question_repres, input_dim, options.highway_layer_num)
-                    tf.summary.scalar(self.model_name + '/input_highway/in_question_repres', in_question_repres)
+
+                in_question_repres = match_utils.multi_highway_layer(in_question_repres, input_dim, options.highway_layer_num)
+                tf.summary.scalar(self.model_name + '/input_highway/in_question_repres', in_question_repres)
                 tf.get_variable_scope().reuse_variables()
-                with tf.variable_scope("in_passage_repres"):
-                    in_passage_repres = match_utils.multi_highway_layer(in_passage_repres, input_dim, options.highway_layer_num)
-                    tf.summary.scalar(self.model_name + '/input_highway/in_passage_repres', in_passage_repres)
+
+                in_passage_repres = match_utils.multi_highway_layer(in_passage_repres, input_dim, options.highway_layer_num)
+                tf.summary.scalar(self.model_name + '/input_highway/in_passage_repres', in_passage_repres)
 
         # in_question_repres = tf.multiply(in_question_repres, tf.expand_dims(question_mask, axis=-1))
         # in_passage_repres = tf.multiply(in_passage_repres, tf.expand_dims(mask, axis=-1))
