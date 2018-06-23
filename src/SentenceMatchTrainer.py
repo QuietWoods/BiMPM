@@ -335,12 +335,12 @@ def main(FLAGS):
         with tf.variable_scope("Train_Model", reuse=None, initializer=initializer):
             train_graph = SentenceMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,
                                                   is_training=True, options=FLAGS, global_step=global_step,
-                                                  name='Train_Model')
+                                                  model_name='Train_Model')
 
         with tf.variable_scope("Valid_Model", reuse=True, initializer=initializer):
             valid_graph = SentenceMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,
                                                   is_training=False, options=FLAGS,
-                                                  name='Valid_Model')
+                                                  model_name='Valid_Model')
 
         initializer = tf.global_variables_initializer()
         vars_ = {}

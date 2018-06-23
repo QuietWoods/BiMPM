@@ -53,7 +53,7 @@ if __name__ == '__main__':
         global_step = tf.train.get_or_create_global_step()
         with tf.variable_scope("Model", reuse=False, initializer=initializer):
             valid_graph = SentenceMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,
-                                                  is_training=False, options=options)
+                                                  is_training=False, options=options, model_name='Valid_Model')
 
         initializer = tf.global_variables_initializer()
         vars_ = {}

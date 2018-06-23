@@ -10,7 +10,7 @@ class SentenceMatchModelGraph(object):
         self.options = options
         self.create_placeholders()
         self.create_model_graph(num_classes, word_vocab, char_vocab, is_training, global_step=global_step)
-        
+
     def create_placeholders(self):
         self.question_lengths = tf.placeholder(tf.int32, [None])
         self.passage_lengths = tf.placeholder(tf.int32, [None])
