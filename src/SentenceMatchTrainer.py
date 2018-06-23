@@ -332,15 +332,15 @@ def main(FLAGS):
     with tf.Graph().as_default():
         initializer = tf.random_uniform_initializer(-init_scale, init_scale)
         global_step = tf.train.get_or_create_global_step()
-        with tf.variable_scope("Train_Model", reuse=None, initializer=initializer):
+        with tf.variable_scope("Model", reuse=None, initializer=initializer):
             train_graph = SentenceMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,
                                                   is_training=True, options=FLAGS, global_step=global_step,
-                                                  model_name='Train_Model')
+                                                  model_name='Model')
 
-        with tf.variable_scope("Valid_Model", reuse=True, initializer=initializer):
+        with tf.variable_scope("Model", reuse=True, initializer=initializer):
             valid_graph = SentenceMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,
                                                   is_training=False, options=FLAGS,
-                                                  model_name='Valid_Model')
+                                                  model_name='Model')
 
         initializer = tf.global_variables_initializer()
         vars_ = {}
