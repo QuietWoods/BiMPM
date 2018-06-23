@@ -5,12 +5,12 @@ import match_utils
 
 
 class SentenceMatchModelGraph(object):
-    def __init__(self, num_classes, word_vocab=None, char_vocab=None, is_training=True, options=None, global_step=None, name=None):
+    def __init__(self, num_classes, word_vocab=None, char_vocab=None, is_training=True, options=None, global_step=None, model_name=None):
+        self.model_name = model_name
         self.options = options
         self.create_placeholders()
         self.create_model_graph(num_classes, word_vocab, char_vocab, is_training, global_step=global_step)
-        self.model_name = name
-
+        
     def create_placeholders(self):
         self.question_lengths = tf.placeholder(tf.int32, [None])
         self.passage_lengths = tf.placeholder(tf.int32, [None])
