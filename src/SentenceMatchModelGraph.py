@@ -2,6 +2,7 @@
 import tensorflow as tf
 import layer_utils
 import match_utils
+from SentenceMatchTrainer import variable_summaries
 
 
 class SentenceMatchModelGraph(object):
@@ -39,7 +40,6 @@ class SentenceMatchModelGraph(object):
             feed_dict[self.in_passage_chars] = cur_batch.in_passage_chars
 
         return feed_dict
-
 
     def create_model_graph(self, num_classes, word_vocab=None, char_vocab=None, is_training=True, global_step=None):
         options = self.options
@@ -140,24 +140,41 @@ class SentenceMatchModelGraph(object):
 
         #========Prediction Layer=========
         # match_dim = 4 * self.options.aggregation_lstm_dim
-        w_0 = tf.get_variable("w_0", [match_dim, match_dim/2], dtype=tf.float32)
-        b_0 = tf.get_variable("b_0", [match_dim/2], dtype=tf.float32)
-        w_1 = tf.get_variable("w_1", [match_dim/2, num_classes],dtype=tf.float32)
-        b_1 = tf.get_variable("b_1", [num_classes],dtype=tf.float32)
+        with tf.name_scope('prediction_layer'):
+            with tf.name_scope('w_0'):
+                w_0 = tf.get_variable("w_0", [match_dim, match_dim/2], dtype=tf.float32)
+                variable_summaries(w_0)
+            with tf.name_scope('b_0'):
+                b_0 = tf.get_variable("b_0", [match_dim/2], dtype=tf.float32)
+                variable_summaries(b_0)
+            with tf.name_scope('w_1'):
+                w_1 = tf.get_variable("w_1", [match_dim/2, num_classes],dtype=tf.float32)
+                variable_summaries(w_1)
+            with tf.name_scope('b_1'):
+                b_1 = tf.get_variable("b_1", [num_classes],dtype=tf.float32)
+                variable_summaries(b_1)
+
 
         # if is_training: match_representation = tf.nn.dropout(match_representation, (1 - options.dropout_rate))
-        logits = tf.matmul(match_representation, w_0) + b_0
-        logits = tf.tanh(logits)
+        with tf.name_scope('logits'):
+            logits = tf.matmul(match_representation, w_0) + b_0
+            tf.summary.histogram('pre_activations', logits)
+        logits = tf.tanh(logits, name='activations')
+        tf.summary.histogram('activations', logits)
         if is_training: logits = tf.nn.dropout(logits, (1 - options.dropout_rate))
         logits = tf.matmul(logits, w_1) + b_1
 
         self.prob = tf.nn.softmax(logits)
         
         gold_matrix = tf.one_hot(self.truth, num_classes, dtype=tf.float32)
-        self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=gold_matrix))
+        with tf.name_scope('cross_entropy'):
+            self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=gold_matrix))
+            tf.summary.scalar('cross entropy', self.loss)
 
         correct = tf.nn.in_top_k(logits, self.truth, 1)
-        self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
+        with tf.name_scope('accuracy'):
+            self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
+        tf.summary.scalar('accuracy', self.eval_correct)
         self.predictions = tf.argmax(self.prob, 1)
 
         if not is_training: return
@@ -176,6 +193,7 @@ class SentenceMatchModelGraph(object):
         grads, _ = tf.clip_by_global_norm(grads, self.options.grad_clipper)
         self.train_op = optimizer.apply_gradients(zip(grads, tvars), global_step=global_step)
         # self.train_op = optimizer.apply_gradients(zip(grads, tvars))
+        self.merged = tf.summary.merge_all()
 
         if self.options.with_moving_average:
             # Track the moving averages of all trainable variables.

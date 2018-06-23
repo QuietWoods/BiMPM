@@ -2,8 +2,8 @@
 from __future__ import print_function
 from __future__ import division
 from vocab_utils import Vocab
-from SentenceMatchDataStream import SentenceMatchDataStream
-from SentenceMatchModelGraph import SentenceMatchModelGraph
+from SentenceMatchDataStream import *
+from SentenceMatchModelGraph import *
 import namespace_utils
 import jieba
 import argparse
@@ -21,7 +21,13 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as pl
 
-jieba.load_userdict('mydict/mydict.txt')
+jieba.load_userdict('C:\\Users\\wl\\Downloads\\mydict.txt')
+
+#
+SUMMARY_DIR = 'tensorboard'
+# Create tensorboard folder if not exists
+if not os.path.exists('tensorboard'):
+    os.makedirs('tensorboard')
 
 # 获取logger实例，如果参数为空则返回root logger
 logger = logging.getLogger("BiMPM")
@@ -44,6 +50,19 @@ logger.addHandler(console_handler)
 logger.setLevel(logging.INFO)
 
 
+def variable_summaries(var):
+    """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
+    with tf.name_scope('summaries'):
+        mean = tf.reduce_mean(var)
+        tf.summary.scalar('mean', mean)
+        with tf.name_scope('stddev'):
+            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+        tf.summary.scalar('stddev', stddev)
+        tf.summary.scalar('max', tf.reduce_max(var))
+        tf.summary.scalar('min', tf.reduce_min(var))
+        tf.summary.histogram('histogram', var)
+
+
 def collect_vocabs(train_path, with_POS=False, with_NER=False):
     """
     收集词表
@@ -58,7 +77,7 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False):
     all_NERs = None
     if with_POS: all_POSs = set()
     if with_NER: all_NERs = set()
-    infile = open(train_path, 'rt')
+    infile = open(train_path, 'rt', encoding='utf-8')
     i = 0
     for line in infile:
         if line.startswith('-'): continue
@@ -74,6 +93,7 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False):
         sentence2 = words2
         i += 1
         if i < 3:
+            print(line)
             print(sentence1)
             print(type(sentence1))
             print(all_words)
@@ -212,7 +232,7 @@ def predict(sess, valid_graph, devDataStream, outpath=None, label_vocab=None):
 
 
 def train(sess, saver, train_graph, valid_graph, trainDataStream,
-          devDataStream, options, best_path):
+          devDataStream, options, best_path, summary_writer):
     """
     训练
     :param sess:
@@ -241,7 +261,10 @@ def train(sess, saver, train_graph, valid_graph, trainDataStream,
         for batch_index in range(num_batch):  # for each batch
             cur_batch = trainDataStream.get_batch(batch_index)
             feed_dict = train_graph.create_feed_dict(cur_batch, is_training=True)
-            _, loss_value = sess.run([train_graph.train_op, train_graph.loss], feed_dict=feed_dict)
+            _, loss_value, summary = sess.run([train_graph.train_op, train_graph.loss, train_graph.merged], feed_dict=feed_dict)
+            # 将所有日志写入文件， TensorFlowBoard程序就可以拿到这次运行所对应的运行信息。
+            summary_writer.add_summary(summary, batch_index)
+
             total_loss += loss_value
             if batch_index % 100 == 0:
                 print('{} '.format(batch_index), end="")
@@ -253,13 +276,15 @@ def train(sess, saver, train_graph, valid_graph, trainDataStream,
         logger.info('Epoch {}: loss = {:.4f} ({:.4f} sec)'.format(epoch, epoch_loss, duration))
         train_loss.append(epoch_loss)
         # evaluation
-        acc, _ = evaluation(sess, valid_graph, devDataStream)
+        acc, _ = \
+            (sess, valid_graph, devDataStream)
         dev_accuracy.append(acc)
         logger.info("Accuracy: {:.4f}".format(acc))
         if acc >= best_acc:
             best_acc = acc
             saver.save(sess, best_path)
 
+    summary_writer.close()
     # 画图
     # 1.Train Loss
     epoch_seq = range(0, options.max_epochs, 1)
@@ -352,8 +377,12 @@ def main(FLAGS):
 #             if not var.name.startswith("Model"): continue
             vars_[var.name.split(":")[0]] = var
         saver = tf.train.Saver(vars_)
-         
+
+
         sess = tf.Session()
+        # 初始化写日志的writer， 并将当前TensorFlow计算图写入日志。
+        summary_writer = tf.summary.FileWriter(SUMMARY_DIR, sess.graph)
+
         sess.run(initializer)
         if has_pre_trained_model:
             logger.info("Restoring model from " + best_path)
@@ -361,11 +390,11 @@ def main(FLAGS):
             logger.info("DONE!")
 
         # training
-        train(sess, saver, train_graph, valid_graph, trainDataStream, devDataStream, FLAGS, best_path)
+        train(sess, saver, train_graph, valid_graph, trainDataStream, devDataStream, FLAGS, best_path, summary_writer)
 
 
 def enrich_options(options):
-    if not options.__dict__.has_key("in_format"):
+    if "in_format" not in options.__dict__:
         options.__dict__["in_format"] = 'tsv'
 
     return options

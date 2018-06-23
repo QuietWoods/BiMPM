@@ -3,7 +3,7 @@ import numpy as np
 import re
 import jieba
 
-jieba.load_userdict('mydict/mydict.txt')
+jieba.load_userdict('C:\\Users\\wl\\Downloads\\mydict.txt')
 
 def make_batches(size, batch_size):
     nb_batch = int(np.ceil(size/float(batch_size)))
@@ -37,11 +37,11 @@ def pad_3d_vals(in_vals, dim1_size, dim2_size, dim3_size, dtype=np.int32):
 def read_all_instances(inpath, word_vocab=None, label_vocab=None, char_vocab=None, max_sent_length=100,
                        max_char_per_word=10, isLower=True):
     instances = []
-    infile = open(inpath, 'rt')
+    infile = open(inpath, 'rt', encoding='utf-8')
     idx = -1
     for line in infile:
         idx += 1
-        line = line.decode('utf-8').strip()
+        line = line.strip()
         if line.startswith('-'): continue
         items = line.split('\t')
         # 统一处理输入数据

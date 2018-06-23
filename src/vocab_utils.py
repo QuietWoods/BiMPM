@@ -96,7 +96,8 @@ class Vocab(object):
         vec_file = open(vec_path, 'rt')
         word_vecs = {}
         for line in vec_file:
-            line = line.decode('utf-8').strip()
+            # line = line.decode('utf-8').strip()
+            line = line.strip()
             parts = line.split('\t')
             cur_index = int(parts[0])
             word = parts[1]
@@ -122,12 +123,10 @@ class Vocab(object):
         self.word2id = {}
         self.id2word = {}
         
-        vec_file = open(vec_path, 'rt')
-#         header = vec_file.readline()
-#         self.vocab_size, self.word_dim = map(int, header.split())
+        vec_file = open(vec_path, 'rt', encoding='utf-8')
         word_vecs = {}
         for line in vec_file:
-            line = line.decode('utf-8')
+            # line = line.decode('utf-8')
             if line[0] == line[1] == ' ':
                 word = ' '
                 parts = [' '] + line.strip().split(' ')
@@ -147,8 +146,6 @@ class Vocab(object):
         self.word_vecs = np.zeros((self.vocab_size+1, self.word_dim), dtype=np.float32) # the last dimension is all zero
         for cur_index in range(self.vocab_size):
             self.word_vecs[cur_index] = word_vecs[cur_index]
-
-
 
     def fromText_bak(self, vec_path,voc=None):
         # load freq table and build index for each word
@@ -240,7 +237,7 @@ class Vocab(object):
         if voc is not None:
             for word in voc:
                 if word == '': continue
-                if self.word2id.has_key(word): continue
+                if word in self.word2id: continue
                 curIndex = len(self.word2id)
                 self.word2id[word] = curIndex 
                 self.id2word[curIndex] = word
@@ -257,7 +254,7 @@ class Vocab(object):
         self.word_vecs = word_vecs
 
     def hasWord(self, word):
-        return self.word2id.has_key(word)
+        return word in self.word2id
     
     def size(self):
         return len(self.word2id)
@@ -266,7 +263,7 @@ class Vocab(object):
         if self.stoplist is not None:
             if word in self.stoplist:
                 return None
-        if(self.word2id.has_key(word)):
+        if word in self.word2id:
             return self.word2id.get(word)
         else:
             return self.vocab_size
@@ -275,7 +272,7 @@ class Vocab(object):
         return self.id2word.get(idx)
 
     def getVector(self, word):
-        if(self.word2id.has_key(word)):
+        if word in self.word2id:
             idx = self.word2id.get(word)
             return self.word_vecs[idx]
         return None
@@ -285,7 +282,7 @@ class Vocab(object):
         seq = []
         for word in re.split('\\s+', sentence):
             idx = self.getIndex(word)
-            if idx == None and self.__unk_mapping is not None and self.__unk_mapping.has_key(word):
+            if idx == None and self.__unk_mapping is not None and word in self.__unk_mapping:
                 simWord = self.__unk_mapping[word]
                 idx = self.getIndex(simWord)
             if idx == None: idx = self.vocab_size
@@ -296,7 +293,7 @@ class Vocab(object):
         seq = []
         for word in words:
             idx = self.getIndex(word)
-            if idx == None and self.__unk_mapping is not None and self.__unk_mapping.has_key(word):
+            if idx == None and self.__unk_mapping is not None and word in self.__unk_mapping:
                 simWord = self.__unk_mapping[word]
                 idx = self.getIndex(simWord)
             if idx == None: idx = self.vocab_size
@@ -311,7 +308,7 @@ class Vocab(object):
             for i in range(len(word)):
                 cur_char = word[i]
                 idx = self.getIndex(cur_char)
-                if idx == None and self.__unk_mapping is not None and self.__unk_mapping.has_key(cur_char):
+                if idx == None and self.__unk_mapping is not None and cur_char in self.__unk_mapping:
                     simWord = self.__unk_mapping[cur_char]
                     idx = self.getIndex(simWord)
                 if idx == None: idx = self.vocab_size
@@ -434,7 +431,7 @@ def collect_word_count(sentences, unk_num=1):
         sentence = sentence.strip().lower()
         for word in re.split(' ', sentence):
             cur_count = 0
-            if word_count_map.has_key(word):
+            if word in word_count_map:
                 cur_count = word_count_map.get(word)
             word_count_map[word] = cur_count + 1
     word_count_list = []
@@ -455,7 +452,7 @@ def collect_word_count_with_max_vocab(sentences, max_vocab=600000):
         sentence = sentence.strip().lower()
         for word in re.split(' ', sentence):
             cur_count = 0
-            if word_count_map.has_key(word):
+            if word in word_count_map:
                 cur_count = word_count_map.get(word)
             word_count_map[word] = cur_count + 1
     word_count_list = []
