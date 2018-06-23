@@ -25,6 +25,11 @@ import jieba
 
 jieba.load_userdict('mydict/mydict.txt')
 
+# 日志目录
+SUMMARY_DIR = 'tensorboard'
+if not os.path.exists(SUMMARY_DIR):
+    os.mkdir(SUMMARY_DIR)
+
 # 获取logger实例，如果参数为空则返回root logger
 logger = logging.getLogger("BiMPM")
 # 指定logger输出格式
@@ -111,7 +116,7 @@ def output_probs(probs, label_vocab):
     return out_string.strip()
 
 
-def evaluation(sess, valid_graph, devDataStream, outpath=None, label_vocab=None):
+def evaluation(sess, valid_graph, devDataStream, outpath=None, label_vocab=None, valid_writer=None):
     if outpath is not None:
         result_json = {}
     # 评估标准
@@ -127,8 +132,10 @@ def evaluation(sess, valid_graph, devDataStream, outpath=None, label_vocab=None)
         cur_batch = devDataStream.get_batch(batch_index)
         total += cur_batch.batch_size
         feed_dict = valid_graph.create_feed_dict(cur_batch, is_training=True)
-        [cur_correct, probs, predictions] = sess.run([valid_graph.eval_correct, valid_graph.prob, valid_graph.predictions], feed_dict=feed_dict)
+        [cur_correct, probs, predictions, summary] = sess.run([valid_graph.eval_correct, valid_graph.prob, valid_graph.predictions, valid_graph.merged], feed_dict=feed_dict)
         correct += cur_correct
+        valid_writer.add_summary(summary, batch_index)
+
         if outpath is not None:
             for i in range(cur_batch.batch_size):
                 (label, sentence1, sentence2, _, _, _, _, _, cur_ID) = cur_batch.instances[i]
@@ -211,7 +218,7 @@ def predict(sess, valid_graph, devDataStream, outpath=None, label_vocab=None):
 
 
 def train(sess, saver, train_graph, valid_graph, trainDataStream,
-          devDataStream, options, best_path):
+          devDataStream, options, best_path, train_writer, valid_writer):
     best_acc = -1
     # 损失函数
     train_loss = []
@@ -228,8 +235,9 @@ def train(sess, saver, train_graph, valid_graph, trainDataStream,
         for batch_index in range(num_batch):  # for each batch
             cur_batch = trainDataStream.get_batch(batch_index)
             feed_dict = train_graph.create_feed_dict(cur_batch, is_training=True)
-            _, loss_value = sess.run([train_graph.train_op, train_graph.loss], feed_dict=feed_dict)
+            _, loss_value, summary = sess.run([train_graph.train_op, train_graph.loss, train_graph.merged], feed_dict=feed_dict)
             total_loss += loss_value
+            train_writer.add_summary(summary, batch_index)
             if batch_index % 100 == 0:
                 print('{} '.format(batch_index), end="")
                 sys.stdout.flush()
@@ -240,7 +248,7 @@ def train(sess, saver, train_graph, valid_graph, trainDataStream,
         logger.info('Epoch {}: loss = {:.4f} ({:.4f} sec)'.format(epoch, epoch_loss, duration))
         train_loss.append(epoch_loss)
         # evaluation
-        acc, _ = evaluation(sess, valid_graph, devDataStream)
+        acc, _ = evaluation(sess, valid_graph, devDataStream, valid_writer)
         dev_accuracy.append(acc)
         logger.info("Accuracy: {:.4f}".format(acc))
         if acc >= best_acc:
@@ -324,23 +332,29 @@ def main(FLAGS):
     with tf.Graph().as_default():
         initializer = tf.random_uniform_initializer(-init_scale, init_scale)
         global_step = tf.train.get_or_create_global_step()
-        with tf.variable_scope("Model", reuse=None, initializer=initializer):
+        with tf.variable_scope("Train_Model", reuse=None, initializer=initializer):
             train_graph = SentenceMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,
-                                                  is_training=True, options=FLAGS, global_step=global_step)
+                                                  is_training=True, options=FLAGS, global_step=global_step,
+                                                  name='Train_Model')
 
-        with tf.variable_scope("Model", reuse=True, initializer=initializer):
+        with tf.variable_scope("Valid_Model", reuse=True, initializer=initializer):
             valid_graph = SentenceMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,
-                is_training=False, options=FLAGS)
+                                                  is_training=False, options=FLAGS,
+                                                  name='Valid_Model')
 
         initializer = tf.global_variables_initializer()
         vars_ = {}
         for var in tf.global_variables():
-            if "word_embedding" in var.name: continue
-#             if not var.name.startswith("Model"): continue
+            if "word_embedding" in var.name:
+                continue
             vars_[var.name.split(":")[0]] = var
         saver = tf.train.Saver(vars_)
          
         sess = tf.Session()
+        # 初始化写日志的wirter， 并将当前TensorFlow计算图写入日志
+        train_writer = tf.summary.FileWriter(SUMMARY_DIR + '/train', sess.graph)
+        valid_writer = tf.summary.FileWriter(SUMMARY_DIR + '/valid')
+
         sess.run(initializer)
         if has_pre_trained_model:
             logger.info("Restoring model from " + best_path)
@@ -348,7 +362,11 @@ def main(FLAGS):
             logger.info("DONE!")
 
         # training
-        train(sess, saver, train_graph, valid_graph, trainDataStream, devDataStream, FLAGS, best_path)
+        train(sess, saver, train_graph, valid_graph, trainDataStream, devDataStream, FLAGS, best_path, train_writer, valid_writer)
+
+        train_writer.close()
+        valid_writer.close()
+
 
 def enrich_options(options):
     if not options.__dict__.has_key("in_format"):

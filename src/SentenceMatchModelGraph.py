@@ -5,10 +5,11 @@ import match_utils
 
 
 class SentenceMatchModelGraph(object):
-    def __init__(self, num_classes, word_vocab=None, char_vocab=None, is_training=True, options=None, global_step=None):
+    def __init__(self, num_classes, word_vocab=None, char_vocab=None, is_training=True, options=None, global_step=None, name=None):
         self.options = options
         self.create_placeholders()
         self.create_model_graph(num_classes, word_vocab, char_vocab, is_training, global_step=global_step)
+        self.model_name = name
 
     def create_placeholders(self):
         self.question_lengths = tf.placeholder(tf.int32, [None])
@@ -127,9 +128,13 @@ class SentenceMatchModelGraph(object):
         # ======Highway layer======
         if options.with_highway:
             with tf.variable_scope("input_highway"):
-                in_question_repres = match_utils.multi_highway_layer(in_question_repres, input_dim, options.highway_layer_num)
+                with tf.variable_scope("in_question_repres"):
+                    in_question_repres = match_utils.multi_highway_layer(in_question_repres, input_dim, options.highway_layer_num)
+                    tf.summary.scalar(self.model_name + '/input_highway/in_question_repres', in_question_char_repres)
                 tf.get_variable_scope().reuse_variables()
-                in_passage_repres = match_utils.multi_highway_layer(in_passage_repres, input_dim, options.highway_layer_num)
+                with tf.variable_scope("in_passage_repres"):
+                    in_passage_repres = match_utils.multi_highway_layer(in_passage_repres, input_dim, options.highway_layer_num)
+                    tf.summary.scalar(self.model_name + '/input_highway/in_passage_repres', in_passage_repres)
 
         # in_question_repres = tf.multiply(in_question_repres, tf.expand_dims(question_mask, axis=-1))
         # in_passage_repres = tf.multiply(in_passage_repres, tf.expand_dims(mask, axis=-1))
@@ -140,25 +145,41 @@ class SentenceMatchModelGraph(object):
 
         #========Prediction Layer=========
         # match_dim = 4 * self.options.aggregation_lstm_dim
-        w_0 = tf.get_variable("w_0", [match_dim, match_dim/2], dtype=tf.float32)
-        b_0 = tf.get_variable("b_0", [match_dim/2], dtype=tf.float32)
-        w_1 = tf.get_variable("w_1", [match_dim/2, num_classes],dtype=tf.float32)
-        b_1 = tf.get_variable("b_1", [num_classes],dtype=tf.float32)
+        with tf.name_scope('prediction_layer'):
+            w_0 = tf.get_variable("w_0", [match_dim, match_dim/2], dtype=tf.float32)
+            tf.summary.histogram(self.model_name + '/prediction_layer/w_0', w_0)
+            b_0 = tf.get_variable("b_0", [match_dim/2], dtype=tf.float32)
+            tf.summary.histogram(self.model_name + '/prediction_layer/b_0', b_0)
+            w_1 = tf.get_variable("w_1", [match_dim/2, num_classes],dtype=tf.float32)
+            tf.summary.histogram(self.model_name + '/prediction_layer/w_1', w_1)
+            b_1 = tf.get_variable("b_1", [num_classes], dtype=tf.float32)
+            tf.summary.histogram(self.model_name + '/prediction_layer/b_1', b_1)
 
         # if is_training: match_representation = tf.nn.dropout(match_representation, (1 - options.dropout_rate))
-        logits = tf.matmul(match_representation, w_0) + b_0
+        with tf.name_scope('pre_act'):
+            logits = tf.matmul(match_representation, w_0) + b_0
+            tf.summary.histogram(self.model_name + '/pre_act', logits)
         logits = tf.tanh(logits)
+        tf.summary.histogram(self.model_name + '/act', logits)
+
         if is_training: logits = tf.nn.dropout(logits, (1 - options.dropout_rate))
         logits = tf.matmul(logits, w_1) + b_1
 
         self.prob = tf.nn.softmax(logits)
         
         gold_matrix = tf.one_hot(self.truth, num_classes, dtype=tf.float32)
-        self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=gold_matrix))
+        with tf.name_scope('loss'):
+            self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=gold_matrix))
+            tf.summary.scalar(self.model_name + '/loss', self.loss)
 
         correct = tf.nn.in_top_k(logits, self.truth, 1)
-        self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
+        with tf.name_scope('accuracy'):
+            self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
+            tf.summary.scalar(self.model_name + '/accuracy', self.eval_correct)
+
         self.predictions = tf.argmax(self.prob, 1)
+
+        self.merged = tf.summary.merge_all()
 
         if not is_training: return
 
