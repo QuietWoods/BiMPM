@@ -117,8 +117,8 @@ def output_probs(probs, label_vocab):
 
 
 def evaluation(sess, valid_graph, devDataStream, outpath=None, label_vocab=None, valid_writer=None):
-    if outpath is not None:
-        result_json = {}
+    #if outpath is not None:
+    result_json = {}
     # 评估标准
     TP = 0  # True Positive（TP）意思表示做出同义的判定，而且判定是正确的，TP的数值表示正确的同义判定的个数；
     FP = 0  # False Positive（FP）数值表示错误的同义判定的个数；
@@ -218,7 +218,7 @@ def predict(sess, valid_graph, devDataStream, outpath=None, label_vocab=None):
 
 
 def train(sess, saver, train_graph, valid_graph, trainDataStream,
-          devDataStream, options, best_path, train_writer, valid_writer):
+          devDataStream, options, best_path):
     best_f1 = -1
     # 损失函数
     train_loss = []
@@ -237,9 +237,9 @@ def train(sess, saver, train_graph, valid_graph, trainDataStream,
         for batch_index in range(num_batch):  # for each batch
             cur_batch = trainDataStream.get_batch(batch_index)
             feed_dict = train_graph.create_feed_dict(cur_batch, is_training=True)
-            _, loss_value, summary = sess.run([train_graph.train_op, train_graph.loss, train_graph.merged], feed_dict=feed_dict)
+            _, loss_value = sess.run([train_graph.train_op, train_graph.loss], feed_dict=feed_dict)
             total_loss += loss_value
-            train_writer.add_summary(summary, batch_index)
+
             if batch_index % 100 == 0:
                 print('{} '.format(batch_index), end="")
                 sys.stdout.flush()
@@ -250,7 +250,7 @@ def train(sess, saver, train_graph, valid_graph, trainDataStream,
         logger.info('Epoch {}: loss = {:.4f} ({:.4f} sec)'.format(epoch, epoch_loss, duration))
         train_loss.append(epoch_loss)
         # evaluation
-        acc, f1_score = evaluation(sess, valid_graph, devDataStream, valid_writer)
+        acc, f1_score = evaluation(sess, valid_graph, devDataStream)
         dev_accuracy.append(acc)
         f1_score_list.append(f1_score)
         logger.info("Accuracy: {:.4f}".format(acc))
@@ -345,13 +345,11 @@ def main(FLAGS):
         global_step = tf.train.get_or_create_global_step()
         with tf.variable_scope("Model", reuse=None, initializer=initializer):
             train_graph = SentenceMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,
-                                                  is_training=True, options=FLAGS, global_step=global_step,
-                                                  model_name='Model')
+                                                  is_training=True, options=FLAGS, global_step=global_step)
 
         with tf.variable_scope("Model", reuse=True, initializer=initializer):
             valid_graph = SentenceMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,
-                                                  is_training=False, options=FLAGS,
-                                                  model_name='Model')
+                                                  is_training=False, options=FLAGS)
 
         initializer = tf.global_variables_initializer()
         vars_ = {}
@@ -363,8 +361,8 @@ def main(FLAGS):
          
         sess = tf.Session()
         # 初始化写日志的wirter， 并将当前TensorFlow计算图写入日志
-        train_writer = tf.summary.FileWriter(SUMMARY_DIR + '/train', sess.graph)
-        valid_writer = tf.summary.FileWriter(SUMMARY_DIR + '/valid')
+        # train_writer = tf.summary.FileWriter(SUMMARY_DIR + '/train', sess.graph)
+        # valid_writer = tf.summary.FileWriter(SUMMARY_DIR + '/valid')
 
         sess.run(initializer)
         if has_pre_trained_model:
@@ -373,10 +371,10 @@ def main(FLAGS):
             logger.info("DONE!")
 
         # training
-        train(sess, saver, train_graph, valid_graph, trainDataStream, devDataStream, FLAGS, best_path, train_writer, valid_writer)
+        train(sess, saver, train_graph, valid_graph, trainDataStream, devDataStream, FLAGS, best_path)
 
-        train_writer.close()
-        valid_writer.close()
+        # train_writer.close()
+        # valid_writer.close()
 
 
 def enrich_options(options):
