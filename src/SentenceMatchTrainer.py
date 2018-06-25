@@ -180,8 +180,8 @@ def evaluation(sess, valid_graph, devDataStream, outpath=True, label_vocab=None)
         except ZeroDivisionError:
             logger.error('ZeroDivisionError occur!')
             F1_score = -1
-        with open(outpath, 'w') as outfile:
-            json.dump(result_json, outfile)
+        # with open(outpath, 'w') as outfile:
+        #     json.dump(result_json, outfile)
 
     return acc, F1_score
 
