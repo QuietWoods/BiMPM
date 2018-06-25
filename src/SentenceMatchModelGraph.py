@@ -145,15 +145,11 @@ class SentenceMatchModelGraph(object):
 
         #========Prediction Layer=========
         # match_dim = 4 * self.options.aggregation_lstm_dim
-        with tf.name_scope('prediction_layer'):
-            w_0 = tf.get_variable("w_0", [match_dim, match_dim/2], dtype=tf.float32)
-            tf.summary.histogram(self.model_name + '/prediction_layer/w_0', w_0)
-            b_0 = tf.get_variable("b_0", [match_dim/2], dtype=tf.float32)
-            tf.summary.histogram(self.model_name + '/prediction_layer/b_0', b_0)
-            w_1 = tf.get_variable("w_1", [match_dim/2, num_classes],dtype=tf.float32)
-            tf.summary.histogram(self.model_name + '/prediction_layer/w_1', w_1)
-            b_1 = tf.get_variable("b_1", [num_classes], dtype=tf.float32)
-            tf.summary.histogram(self.model_name + '/prediction_layer/b_1', b_1)
+        w_0 = tf.get_variable("w_0", [match_dim, match_dim/2], dtype=tf.float32)
+        b_0 = tf.get_variable("b_0", [match_dim/2], dtype=tf.float32)
+        w_1 = tf.get_variable("w_1", [match_dim/2, num_classes],dtype=tf.float32)
+        b_1 = tf.get_variable("b_1", [num_classes], dtype=tf.float32)
+
 
         # if is_training: match_representation = tf.nn.dropout(match_representation, (1 - options.dropout_rate))
         with tf.name_scope('pre_act'):

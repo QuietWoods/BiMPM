@@ -136,7 +136,7 @@ def evaluation(sess, valid_graph, devDataStream, outpath=None, label_vocab=None,
         correct += cur_correct
         valid_writer.add_summary(summary, batch_index)
 
-        if outpath is not None:
+        if outpath is None:
             for i in range(cur_batch.batch_size):
                 (label, sentence1, sentence2, _, _, _, _, _, cur_ID) = cur_batch.instances[i]
                 result_json[cur_ID] = {
@@ -160,7 +160,7 @@ def evaluation(sess, valid_graph, devDataStream, outpath=None, label_vocab=None,
                         FN += 1
     # 准确率（precision rate）、召回率（recall rate）和accuracy、F1-score
     acc = correct / total * 100
-    if outpath is not None:
+    if outpath is None:
         try:
             accuracy = (TP + TN) / (TP + FP + TN + FN)
             precision_rate = TP / (TP + FP)
@@ -180,8 +180,8 @@ def evaluation(sess, valid_graph, devDataStream, outpath=None, label_vocab=None,
         except ZeroDivisionError:
             logger.error('ZeroDivisionError occur!')
             F1_score = -1
-        with open(outpath, 'w') as outfile:
-            json.dump(result_json, outfile)
+        # with open(outpath, 'w') as outfile:
+        #     json.dump(result_json, outfile)
 
     return acc, F1_score
 
@@ -219,11 +219,13 @@ def predict(sess, valid_graph, devDataStream, outpath=None, label_vocab=None):
 
 def train(sess, saver, train_graph, valid_graph, trainDataStream,
           devDataStream, options, best_path, train_writer, valid_writer):
-    best_acc = -1
+    best_f1 = -1
     # 损失函数
     train_loss = []
     # 准确率
     dev_accuracy = []
+    # f1-score
+    f1_score_list = []
 
     for epoch in range(options.max_epochs):
         logger.info('Train in epoch {}'.format(epoch))
@@ -248,11 +250,13 @@ def train(sess, saver, train_graph, valid_graph, trainDataStream,
         logger.info('Epoch {}: loss = {:.4f} ({:.4f} sec)'.format(epoch, epoch_loss, duration))
         train_loss.append(epoch_loss)
         # evaluation
-        acc, _ = evaluation(sess, valid_graph, devDataStream, valid_writer)
+        acc, f1_score = evaluation(sess, valid_graph, devDataStream, valid_writer)
         dev_accuracy.append(acc)
+        f1_score_list.append(f1_score)
         logger.info("Accuracy: {:.4f}".format(acc))
-        if acc >= best_acc:
-            best_acc = acc
+        logger.info("f1-socre: {:.4f}".format(f1_score))
+        if f1_score >= best_f1:
+            best_f1 = f1_score
             saver.save(sess, best_path)
 
     # 画图
@@ -271,6 +275,13 @@ def train(sess, saver, train_graph, valid_graph, trainDataStream,
     pl.ylabel('Accuracy')
     # pl.show(block=False)
     pl.savefig('accuracy.png')
+    # 3.Dev f1-score
+    pl.plot(epoch_seq, f1_score_list, 'r-', label='Dev Set')
+    pl.title('Dev f1-score')
+    pl.xlabel('Epochs')
+    pl.ylabel('f1-score')
+    # pl.show(block=False)
+    pl.savefig('f1-score.png')
 
 
 def main(FLAGS):
