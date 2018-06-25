@@ -132,9 +132,9 @@ def evaluation(sess, valid_graph, devDataStream, outpath=None, label_vocab=None,
         cur_batch = devDataStream.get_batch(batch_index)
         total += cur_batch.batch_size
         feed_dict = valid_graph.create_feed_dict(cur_batch, is_training=True)
-        [cur_correct, probs, predictions, summary] = sess.run([valid_graph.eval_correct, valid_graph.prob, valid_graph.predictions, valid_graph.merged], feed_dict=feed_dict)
+        [cur_correct, probs, predictions] = sess.run([valid_graph.eval_correct, valid_graph.prob, valid_graph.predictions], feed_dict=feed_dict)
         correct += cur_correct
-        valid_writer.add_summary(summary, batch_index)
+
 
         if outpath is None:
             for i in range(cur_batch.batch_size):
