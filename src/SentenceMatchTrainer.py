@@ -218,7 +218,7 @@ def predict(sess, valid_graph, devDataStream, outpath=None, label_vocab=None):
 
 
 def train(sess, saver, train_graph, valid_graph, trainDataStream,
-          devDataStream, options, best_path):
+          devDataStream, options, best_path, train_writer):
     best_f1 = -1
     # 损失函数
     train_loss = []
@@ -237,9 +237,9 @@ def train(sess, saver, train_graph, valid_graph, trainDataStream,
         for batch_index in range(num_batch):  # for each batch
             cur_batch = trainDataStream.get_batch(batch_index)
             feed_dict = train_graph.create_feed_dict(cur_batch, is_training=True)
-            _, loss_value = sess.run([train_graph.train_op, train_graph.loss], feed_dict=feed_dict)
+            _, loss_value, summary = sess.run([train_graph.train_op, train_graph.loss, train_graph.merged], feed_dict=feed_dict)
             total_loss += loss_value
-
+            train_writer.add_summary(summary, batch_index)
             if batch_index % 100 == 0:
                 print('{} '.format(batch_index), end="")
                 sys.stdout.flush()
@@ -258,6 +258,7 @@ def train(sess, saver, train_graph, valid_graph, trainDataStream,
         if f1_score >= best_f1:
             best_f1 = f1_score
             saver.save(sess, best_path)
+
 
     # 画图
     # 1.Train Loss
@@ -361,7 +362,7 @@ def main(FLAGS):
          
         sess = tf.Session()
         # 初始化写日志的wirter， 并将当前TensorFlow计算图写入日志
-        # train_writer = tf.summary.FileWriter(SUMMARY_DIR + '/train', sess.graph)
+        train_writer = tf.summary.FileWriter(SUMMARY_DIR, sess.graph)
         # valid_writer = tf.summary.FileWriter(SUMMARY_DIR + '/valid')
 
         sess.run(initializer)
@@ -371,9 +372,9 @@ def main(FLAGS):
             logger.info("DONE!")
 
         # training
-        train(sess, saver, train_graph, valid_graph, trainDataStream, devDataStream, FLAGS, best_path)
+        train(sess, saver, train_graph, valid_graph, trainDataStream, devDataStream, FLAGS, best_path, train_writer)
 
-        # train_writer.close()
+        train_writer.close()
         # valid_writer.close()
 
 
