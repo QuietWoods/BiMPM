@@ -138,7 +138,14 @@ def evaluation(sess, valid_graph, devDataStream, outpath=True, label_vocab=None)
         if outpath is not None:
             for i in range(cur_batch.batch_size):
                 (label, sentence1, sentence2, _, _, _, _, _, cur_ID) = cur_batch.instances[i]
-
+                result_json[cur_ID] = {
+                    "ID": cur_ID,
+                    "truth": label,
+                    "sent1": sentence1,
+                    "sent2": sentence2,
+                    "prediction": label_vocab.getWord(predictions[i]),
+                    "probs": output_probs(probs[i], label_vocab),
+                }
                 if label_vocab.getWord(predictions[i]) == "1":
                     if label == "1":
                         TP += 1
@@ -173,6 +180,8 @@ def evaluation(sess, valid_graph, devDataStream, outpath=True, label_vocab=None)
         except ZeroDivisionError:
             logger.error('ZeroDivisionError occur!')
             F1_score = -1
+        with open(outpath, 'w') as outfile:
+            json.dump(result_json, outfile)
 
     return acc, F1_score
 
