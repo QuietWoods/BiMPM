@@ -116,9 +116,9 @@ def output_probs(probs, label_vocab):
     return out_string.strip()
 
 
-def evaluation(sess, valid_graph, devDataStream, outpath=None, label_vocab=None, valid_writer=None):
-    #if outpath is not None:
-    result_json = {}
+def evaluation(sess, valid_graph, devDataStream, outpath=True, label_vocab=None):
+    if outpath is not None:
+        result_json = {}
     # 评估标准
     TP = 0  # True Positive（TP）意思表示做出同义的判定，而且判定是正确的，TP的数值表示正确的同义判定的个数；
     FP = 0  # False Positive（FP）数值表示错误的同义判定的个数；
@@ -135,18 +135,9 @@ def evaluation(sess, valid_graph, devDataStream, outpath=None, label_vocab=None,
         [cur_correct, probs, predictions] = sess.run([valid_graph.eval_correct, valid_graph.prob, valid_graph.predictions], feed_dict=feed_dict)
         correct += cur_correct
 
-
-        if outpath is None:
+        if outpath is not None:
             for i in range(cur_batch.batch_size):
                 (label, sentence1, sentence2, _, _, _, _, _, cur_ID) = cur_batch.instances[i]
-                result_json[cur_ID] = {
-                    "ID": cur_ID,
-                    "truth": label,
-                    "sent1": sentence1,
-                    "sent2": sentence2,
-                    "prediction": label_vocab.getWord(predictions[i]),
-                    "probs": output_probs(probs[i], label_vocab),
-                }
 
                 if label_vocab.getWord(predictions[i]) == "1":
                     if label == "1":
@@ -158,9 +149,11 @@ def evaluation(sess, valid_graph, devDataStream, outpath=None, label_vocab=None,
                         TN += 1
                     else:
                         FN += 1
+
     # 准确率（precision rate）、召回率（recall rate）和accuracy、F1-score
+
     acc = correct / total * 100
-    if outpath is None:
+    if outpath is not None:
         try:
             accuracy = (TP + TN) / (TP + FP + TN + FN)
             precision_rate = TP / (TP + FP)
@@ -180,8 +173,6 @@ def evaluation(sess, valid_graph, devDataStream, outpath=None, label_vocab=None,
         except ZeroDivisionError:
             logger.error('ZeroDivisionError occur!')
             F1_score = -1
-        # with open(outpath, 'w') as outfile:
-        #     json.dump(result_json, outfile)
 
     return acc, F1_score
 
@@ -218,7 +209,7 @@ def predict(sess, valid_graph, devDataStream, outpath=None, label_vocab=None):
 
 
 def train(sess, saver, train_graph, valid_graph, trainDataStream,
-          devDataStream, options, best_path, train_writer):
+          devDataStream, options, best_path, train_writer, label_vocab):
     best_f1 = -1
     # 损失函数
     train_loss = []
@@ -250,7 +241,7 @@ def train(sess, saver, train_graph, valid_graph, trainDataStream,
         logger.info('Epoch {}: loss = {:.4f} ({:.4f} sec)'.format(epoch, epoch_loss, duration))
         train_loss.append(epoch_loss)
         # evaluation
-        acc, f1_score = evaluation(sess, valid_graph, devDataStream)
+        acc, f1_score = evaluation(sess, valid_graph, devDataStream, label_vocab=label_vocab)
         dev_accuracy.append(acc)
         f1_score_list.append(f1_score)
         logger.info("Accuracy: {:.4f}".format(acc))
@@ -372,7 +363,7 @@ def main(FLAGS):
             logger.info("DONE!")
 
         # training
-        train(sess, saver, train_graph, valid_graph, trainDataStream, devDataStream, FLAGS, best_path, train_writer)
+        train(sess, saver, train_graph, valid_graph, trainDataStream, devDataStream, FLAGS, best_path, train_writer, label_vocab)
 
         train_writer.close()
         # valid_writer.close()
