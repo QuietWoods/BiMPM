@@ -270,14 +270,14 @@ def train(sess, saver, train_graph, valid_graph, trainDataStream,
     # pl.show(block=False)
     pl.savefig('Loss.png')
     # 2.Dev Accuracy
-    pl.plot(epoch_seq, dev_accuracy, 'r-', label='Dev Set')
-    pl.title('Train Loss')
+    pl.plot(epoch_seq, dev_accuracy, 'k-', label='Dev Set')
+    pl.title('Dev Accuracy')
     pl.xlabel('Epochs')
     pl.ylabel('Accuracy')
     # pl.show(block=False)
     pl.savefig('accuracy.png')
     # 3.Dev f1-score
-    pl.plot(epoch_seq, f1_score_list, 'r-', label='Dev Set')
+    pl.plot(epoch_seq, f1_score_list, 'k-', label='Dev Set')
     pl.title('Dev f1-score')
     pl.xlabel('Epochs')
     pl.ylabel('f1-score')
