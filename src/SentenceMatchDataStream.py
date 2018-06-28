@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import re
-import jieba
+from atec_data_precess import AtecCorpus
 
-jieba.load_userdict('mydict/mydict.txt')
 
 def make_batches(size, batch_size):
     nb_batch = int(np.ceil(size/float(batch_size)))
@@ -39,6 +38,7 @@ def read_all_instances(inpath, word_vocab=None, label_vocab=None, char_vocab=Non
     instances = []
     infile = open(inpath, 'rt')
     idx = -1
+    atec_data_process = AtecCorpus()
     for line in infile:
         idx += 1
         line = line.decode('utf-8').strip()
@@ -52,9 +52,10 @@ def read_all_instances(inpath, word_vocab=None, label_vocab=None, char_vocab=Non
         # 中文分词处理
         sentence1 = sentence1.strip()
         sentence2 = sentence2.strip()
-        stopwords = '，。！？*'
-        words1 = [w for w in jieba.cut(sentence1) if w.strip() and w not in stopwords]
-        words2 = [w for w in jieba.cut(sentence2) if w.strip() and w not in stopwords]
+        # 分词，清洗，去停用词
+        words1 = atec_data_process.segment_clear_sentence(sentence1)
+        words2 = atec_data_process.segment_clear_sentence(sentence2)
+
         sentence1 = ' '.join(words1)
         sentence2 = ' '.join(words2)
         # items = re.split("\t", line)
