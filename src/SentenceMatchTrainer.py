@@ -20,6 +20,7 @@ from matplotlib import pyplot as pl
 from vocab_utils import Vocab
 from SentenceMatchDataStream import SentenceMatchDataStream
 from SentenceMatchModelGraph import SentenceMatchModelGraph
+from atec_data_precess import AtecCorpus
 import namespace_utils
 import jieba
 
@@ -60,8 +61,9 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False):
     if with_NER: all_NERs = set()
     infile = open(train_path, 'rt')
     i = 0
+    atec_data_process = AtecCorpus()
     for line in infile:
-        #line = line.decode('utf-8').strip()
+        line = line.decode('utf-8').strip()
         if line.startswith('-'): continue
         lineno, sentence1, sentence2, label = line.strip().split('\t')
         # items = re.split("\t", line)
@@ -72,11 +74,9 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False):
         # 中文分词， 如果不分词，all_words跟all_chars一样。
         sentence1 = sentence1.strip()
         sentence2 = sentence2.strip()
-        stopwords = '，。！？*'
-        words1 = [w for w in jieba.cut(sentence1) if w.strip() and w not in stopwords]
-        words2 = [w for w in jieba.cut(sentence2) if w.strip() and w not in stopwords]
-        #sentence1 = ' '.join(words1)
-        #sentence2 = ' '.join(words2)
+        # 分词，清洗，去停用词
+        words1 = atec_data_process.segment_clear_sentence(sentence1)
+        words2 = atec_data_process.segment_clear_sentence(sentence2)
         sentence1 = words1
         sentence2 = words2
         i += 1
